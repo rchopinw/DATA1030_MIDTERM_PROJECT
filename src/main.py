@@ -1,83 +1,52 @@
-# Importing packages
-import numpy as np
-import pandas as pd
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline
-from sklearn.decomposition import TruncatedSVD, DictionaryLearning, NMF
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.svm import SVC
-from sklearn.ensemble import (
-    RandomForestClassifier,
-    GradientBoostingClassifier,
-    AdaBoostClassifier,
-    ExtraTreesClassifier,
-    HistGradientBoostingClassifier
+from src.DataProcessing import (
+    DetermineSparse,
+    FeatureSelector,
+    CategoricalFeatureTransformer
 )
-from src.framework import TrainModel, DetermineSparse
-from src.constants import (
-    DATA_PATH,
-    TEST_SIZE,
-    RANDOM_SEED,
-    CATEGORICAL_FEATURES,
-    CONTINUOUS_FEATURES,
-    ORDINAL_FEATURES
+import xgboost as xgb
+import shap
+from matplotlib import pyplot as plt
+from src.ExtremeBoostingModel import xgb_full_loop
+from src.RandomForestModel import random_forest_full_loop
+from src.HistGradientBoostingModel import hist_gradient_boosting_full_loop
+from src.LogisticRegressionModel import logistic_regression_full_loop
+from collections import defaultdict
+from src.ModelEvaluation import (
+    process_xgb_model,
+    process_logistic_hgb_rf_results,
+    process_feature_importance
 )
-
-
-
-def fit_boosting_model(
-        dimension_reduction,
-        balance_sampling,
-) -> tuple:
-    pass
-
-
-def fit_knn_model(
-        dimension_reduction,
-        balance_sampling,
-) -> tuple:
-    pass
 
 
 if __name__ == '__main__':
-    data = pd.read_csv(DATA_PATH)
-    x, y = data.drop(columns=['TARGET']), data.TARGET
-    determine = DetermineSparse()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('onehot', OneHotEncoder(sparse=False, handle_unknown='ignore'), CATEGORICAL_FEATURES),
-            ('std', StandardScaler(), CONTINUOUS_FEATURES),
-            ('ordinal', OrdinalEncoder(), ORDINAL_FEATURES),
-        ]
-    )
+    # training and write the models to local: results
+    logistic_regression_full_loop()
+    hist_gradient_boosting_full_loop()
+    random_forest_full_loop()
+    xgb_full_loop()
 
-    # svc model
-    svc_models, svc_scores = fit_svc_model(
-        dimension_reduction=TruncatedSVD(
-            n_components=30,
-            random_state=RANDOM_SEED,
-        ),
-        balance_sampling=SMOTE(
-            random_state=RANDOM_SEED
+    # evaluating and comparing
+    test_scores, test_stds = process_logistic_hgb_rf_results()
+    _, _, _, _, xgb_test_scores, xgb_test_stds, f_importance, s_v = process_xgb_model()
+
+    # visualization of feature importance (global and local)
+    count = defaultdict(int)
+    optimal = 'extreme_gradient_boosting_model_data_unimputed_1'
+    for k in f_importance[optimal]:
+        f = process_feature_importance(
+            scores=f_importance[optimal][k],
+            score_name=k,
+            fsize=(15, 12)
         )
-    )
+        for feature in f:
+            count[feature] += 1
+    most_selected = sorted(
+        count,
+        key=lambda x: count[x],
+        reverse=True
+    )[:5]
+    print('Mostly selected features are {}'.format(most_selected))
+    for f in most_selected:
+        shap.dependence_plot(f, s_v[optimal][2], s_v[optimal][1], feature_names=s_v[optimal][0], show=False)
+        plt.savefig('figures/{}_shap_visualization.png'.format(f))
 
-    # random forest model
-    rf_pipeline_1 = Pipeline(
-        steps=[
-            ('preprocess', preprocessor),
-            ('sampling', SMOTE(random_state=RANDOM_SEED)),
-            ('model', RandomForestClassifier(random_state=RANDOM_SEED))
-        ]
-    )
-    rf_params_1 = {
-        'model__n_estimators': [10, 50, 100, 150, 200, 300, 500],
-        'model__max_depth': [2, 4, 8, 16, 32]
-    }
-    rf_models, rf_scores = fit_random_forest_model(
-        rf_pipeline_1,
-        rf_params_1
-    )
