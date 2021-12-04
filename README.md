@@ -8,3 +8,13 @@ All the resulting figures are in the figures file and the model scripts are stor
 
 The finalized overall accuracy of the model is 0.71 and the recall is 0.67.
 
+Requirements:
+  - python=3.8
+  - matplotlib=3.3.4
+  - pandas=1.2.4
+  - scikit-learn=1.0.1
+  - numpy=1.20.1
+  - imblearn 0.0
+  - imbalanced-learn 0.8.1
+  - xgboost=1.3.3
+  - shap=0.40.0
