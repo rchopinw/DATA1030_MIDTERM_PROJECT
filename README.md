@@ -21,3 +21,4 @@ Requirements:
   - xgboost=1.3.3
   - shap=0.40.0
 
+To re-generate the code properly, please unzip all under the data file and run main.py.
